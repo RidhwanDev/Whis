@@ -99,6 +99,17 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
         WhisperModelSize(rawValue: UserDefaults.standard.string(forKey: "settings.whisperModel") ?? "base") ?? .base
     }
 
+    private func sanitizeTranscript(_ text: String) -> String {
+        let withoutTaggedTokens = text
+            .replacingOccurrences(of: "<\\|[^|>]+\\|>", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "startoftranscript", with: " ", options: [.caseInsensitive])
+            .replacingOccurrences(of: "endoftext", with: " ", options: [.caseInsensitive])
+
+        return withoutTaggedTokens
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func startAppleListeningSession() {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         recognitionRequest?.shouldReportPartialResults = true
@@ -129,11 +140,12 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
                 guard let self else { return }
 
                 if let result {
-                    self.latestTranscript = result.bestTranscription.formattedString
-                    self.onPartialTranscription?(self.latestTranscript)
+                    let cleaned = self.sanitizeTranscript(result.bestTranscription.formattedString)
+                    self.latestTranscript = cleaned
+                    self.onPartialTranscription?(cleaned)
 
                     if result.isFinal {
-                        self.handleFinalResult(self.latestTranscript)
+                        self.handleFinalResult(cleaned)
                         return
                     }
                 }
@@ -227,7 +239,7 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
     }
 
     private func handleFinalResult(_ transcript: String) {
-        let value = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = sanitizeTranscript(transcript)
         if !value.isEmpty {
             onFinalTranscription?(value)
         }
@@ -244,7 +256,7 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
             return
         }
 
-        let transcript = latestTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let transcript = sanitizeTranscript(latestTranscript)
         let hadActiveSession = isRecording || recognitionTask != nil || recognitionRequest != nil
 
         recognitionRequest?.endAudio()
@@ -306,9 +318,8 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
         let unconfirmed = state.unconfirmedSegments.map(\.text)
         let merged = (confirmed + unconfirmed)
             .joined(separator: " ")
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return merged == "Waiting for speech..." ? "" : merged
+        let cleaned = sanitizeTranscript(merged)
+        return cleaned == "Waiting for speech..." ? "" : cleaned
     }
 
     private func stopWhisperSession(
@@ -316,7 +327,7 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
         reason: SessionEndReason,
         cancelTask: Bool
     ) {
-        let transcript = latestTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let transcript = sanitizeTranscript(latestTranscript)
         let hadActiveSession = isRecording || whisperTask != nil || audioStreamTranscriber != nil
 
         if cancelTask {
