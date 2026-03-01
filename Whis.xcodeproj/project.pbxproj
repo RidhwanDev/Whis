@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1B2C3D62F60000100112233 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D52F60000100112233 /* WhisperKit */; };
 		BD5A65AC2F5318BC00106364 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = BD5A65AB2F5318BC00106364 /* README.md */; };
 /* End PBXBuildFile section */
 
@@ -32,6 +33,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D62F60000100112233 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -95,6 +97,7 @@
 			);
 			name = Whis;
 			packageProductDependencies = (
+				A1B2C3D52F60000100112233 /* WhisperKit */,
 			);
 			productName = Whis;
 			productReference = BD2B49512F530E5900CC0809 /* Whis.app */;
@@ -128,6 +131,9 @@
 			productRefGroup = BD2B49522F530E5900CC0809 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				A1B2C3D42F60000100112233 /* XCRemoteSwiftPackageReference "WhisperKit" */,
+			);
 			targets = (
 				BD2B49502F530E5900CC0809 /* Whis */,
 			);
@@ -154,6 +160,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1B2C3D42F60000100112233 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit.git";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1B2C3D52F60000100112233 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D42F60000100112233 /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BD2B495A2F530E5B00CC0809 /* Debug */ = {

@@ -8,6 +8,8 @@ struct SettingsView: View {
     @AppStorage("settings.wakeWord") private var wakeWord = "Lift"
     @AppStorage("settings.voiceFeedbackEnabled") private var voiceFeedbackEnabled = false
     @AppStorage("settings.voiceIdentifier") private var voiceIdentifier = ""
+    @AppStorage("settings.transcriptionBackend") private var transcriptionBackend = TranscriptionBackend.apple.rawValue
+    @AppStorage("settings.whisperModel") private var whisperModel = WhisperModelSize.base.rawValue
 
 #if os(iOS)
     private var voiceOptions: [SpeechFeedbackService.VoiceOption] {
@@ -41,6 +43,25 @@ struct SettingsView: View {
                         Text("Whis").tag("Whis")
                         Text("Logger").tag("Logger")
                         Text("Ready").tag("Ready")
+                    }
+                }
+                
+                Section("Transcription Engine") {
+                    Picker("Backend", selection: $transcriptionBackend) {
+                        ForEach(TranscriptionBackend.allCases) { backend in
+                            Text(backend.displayName).tag(backend.rawValue)
+                        }
+                    }
+                    
+                    if transcriptionBackend == TranscriptionBackend.whisper.rawValue {
+                        Picker("Whisper Model", selection: $whisperModel) {
+                            ForEach(WhisperModelSize.allCases) { size in
+                                Text(size.displayName).tag(size.rawValue)
+                            }
+                        }
+                        Text("Whisper runs on-device in continuous listening mode. First launch may download model assets.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 

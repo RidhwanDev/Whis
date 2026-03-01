@@ -9,6 +9,7 @@ MVP iPhone + watchOS companion for fast set logging with push-to-talk voice comm
 - Push-to-talk voice commands (iOS and watch).
 - Optional always-listening mode on iOS with configurable wake word (`Lift`, `Whis`, `Logger`, `Ready`).
 - Optional spoken confirmations (configurable voice on iOS).
+- Transcription backend selection in Settings (`Apple Speech` or `Whisper` profile selection).
 - Rule-based parser (no LLM, no backend).
 - Clear command confirmation toast on iPhone and watch.
 - Watch haptics: success (single), error (double).
@@ -92,4 +93,16 @@ Planned direction for more natural command understanding while keeping costs bou
 - Keep wake-word + silence-commit UX for stable command boundaries.
 
 This keeps the app voice-first and more flexible without introducing unbounded cloud costs.
+
+## Whisper Integration Status
+WhisperKit is now linked as a Swift Package and used when `Whisper (On-Device)` is selected in Settings.
+
+Current behavior:
+- `Whisper + Base/Small` works in continuous listening mode.
+- First run with each model may download model assets and can take time.
+- Push-to-talk single-utterance mode currently uses Apple Speech with a runtime notice.
+
+Notes:
+- iPhone remains the source of truth for command execution.
+- If Whisper fails at runtime, the app falls back to Apple Speech and surfaces the reason in the listening banner.
 

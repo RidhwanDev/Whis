@@ -165,6 +165,13 @@ struct WorkoutLiveView: View {
                     .padding(.vertical, 8)
                     .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
+            
+            if let backendNotice = speechService.backendNotice {
+                Text(backendNotice)
+                    .font(.footnote)
+                    .foregroundStyle(.yellow.opacity(0.95))
+                    .lineLimit(2)
+            }
         }
         .padding(16)
         .background(
