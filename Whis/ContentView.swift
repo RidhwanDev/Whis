@@ -4,6 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var store = WorkoutStore()
+    @StateObject private var speechService = SpeechRecognizerService()
 
     var body: some View {
         Group {
@@ -20,7 +21,7 @@ struct ContentView: View {
                         }
                 }
             } else {
-                WorkoutLiveView(store: store)
+                WorkoutLiveView(store: store, speechService: speechService)
             }
         }
         .onAppear {

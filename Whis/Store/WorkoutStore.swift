@@ -50,10 +50,12 @@ final class WorkoutStore: ObservableObject {
     private var modelContext: ModelContext?
     private var undoStack: [UndoState] = []
     private var lastEditedField: LastEditedField?
+    private var lastPushedSnapshot: WorkoutSnapshot?
     private let parser = CommandParser()
     private let syncManager: WatchSyncManager
 #if os(iOS)
     private let speechFeedback = SpeechFeedbackService.shared
+    private let liveActivityManager = WorkoutLiveActivityManager.shared
 #endif
 
     init(syncManager: WatchSyncManager? = nil) {
@@ -108,6 +110,7 @@ final class WorkoutStore: ObservableObject {
         selectedExerciseID = nil
         restEndDate = nil
         undoStack.removeAll()
+        lastPushedSnapshot = nil
         showingSummary = false
 
         if let first = catalog.first {
@@ -130,7 +133,11 @@ final class WorkoutStore: ObservableObject {
         selectedExerciseID = nil
         restEndDate = nil
         toast = nil
+        lastPushedSnapshot = nil
         pendingAmbiguity = nil
+#if os(iOS)
+        liveActivityManager.end()
+#endif
         pushSnapshotToWatch()
     }
 
@@ -143,7 +150,11 @@ final class WorkoutStore: ObservableObject {
         selectedExerciseID = nil
         restEndDate = nil
         toast = nil
+        lastPushedSnapshot = nil
         pendingAmbiguity = nil
+#if os(iOS)
+        liveActivityManager.end()
+#endif
         pushSnapshotToWatch()
     }
 
@@ -699,7 +710,15 @@ final class WorkoutStore: ObservableObject {
             action: toast?.action,
             isError: toast?.isError ?? false
         )
+
+        // Avoid spamming WatchConnectivity and Live Activity updates with identical payloads.
+        guard snapshot != lastPushedSnapshot else { return }
+        lastPushedSnapshot = snapshot
+
         syncManager.sendSnapshot(snapshot)
+        if let sessionID = currentSession?.id {
+            liveActivityManager.startOrUpdate(sessionID: sessionID, snapshot: snapshot)
+        }
 #endif
     }
 

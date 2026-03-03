@@ -34,9 +34,9 @@ enum WhisperModelSize: String, CaseIterable, Identifiable {
     var whisperKitModelName: String {
         switch self {
         case .base:
-            return "base"
+            return "openai_whisper-base"
         case .small:
-            return "small"
+            return "openai_whisper-small"
         }
     }
 }

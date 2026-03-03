@@ -3,7 +3,7 @@ import SwiftUI
 
 struct WorkoutLiveView: View {
     @ObservedObject var store: WorkoutStore
-    @StateObject private var speechService = SpeechRecognizerService()
+    @ObservedObject var speechService: SpeechRecognizerService
 
     @AppStorage("settings.alwaysListening") private var alwaysListening = true
     @AppStorage("settings.wakeWord") private var wakeWord = "Lift"
@@ -21,6 +21,8 @@ struct WorkoutLiveView: View {
     @State private var lastPartialHeardAt: Date?
     @State private var pendingCommandPhrase: String?
     @State private var pendingSourcePhrase: String?
+    @State private var silenceCommitTask: Task<Void, Never>?
+    @State private var wakeTimeoutTask: Task<Void, Never>?
 
     private let parser = CommandParser()
     private let wakeTimeoutSeconds: TimeInterval = 8
@@ -95,27 +97,12 @@ struct WorkoutLiveView: View {
             configureListeningMode()
         }
         .onDisappear {
+            wakeTimeoutTask?.cancel()
+            silenceCommitTask?.cancel()
             speechService.stopListening()
         }
         .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
             store.heartbeat()
-            if let wakeArmedUntil, wakeArmedUntil <= .now {
-                clearWakeSession(resetSpeechContext: true, status: "Say \"\(wakeWord)\" then your command")
-            }
-            
-            if let lastPartialHeardAt,
-               Date().timeIntervalSince(lastPartialHeardAt) >= contextAutoClearAfterSilenceSeconds,
-               alwaysListening,
-               !isManuallyPaused,
-               isWakeArmed {
-                if let pendingCommandPhrase,
-                   !pendingCommandPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                   let pendingSourcePhrase {
-                    executeCommandIfReady(pendingCommandPhrase, sourcePhrase: pendingSourcePhrase)
-                } else {
-                    clearWakeSession(resetSpeechContext: true, status: "Still listening. Say command again")
-                }
-            }
         }
     }
 
@@ -482,26 +469,31 @@ struct WorkoutLiveView: View {
             let remaining = Array(tokens.suffix(from: wakeIndex + 1))
             wakeArmedUntil = .now.addingTimeInterval(wakeTimeoutSeconds)
             wakeSessionLastActivity = .now
+            scheduleWakeTimeout()
 
             if remaining.isEmpty {
                 listeningStatus = "Wake word heard. Say command now"
                 liveTranscript = phrase
                 pendingCommandPhrase = nil
                 pendingSourcePhrase = nil
+                scheduleSilenceCommit()
                 return
             }
 
             pendingCommandPhrase = remaining.joined(separator: " ")
             pendingSourcePhrase = phrase
             listeningStatus = "Listening for command…"
+            scheduleSilenceCommit()
             return
         }
         
         if let wakeArmedUntil, wakeArmedUntil > .now {
-            pendingCommandPhrase = tokens.joined(separator: " ")
+            let joined = tokens.joined(separator: " ")
+            pendingCommandPhrase = joined
             pendingSourcePhrase = phrase
             wakeSessionLastActivity = .now
             listeningStatus = "Listening for command…"
+            scheduleSilenceCommit()
         }
     }
     
@@ -624,8 +616,7 @@ struct WorkoutLiveView: View {
         guard speechService.mode == .continuous else { return }
         guard !speechService.isRecording else { return }
 
-        // Single owner of restart timing to avoid re-entrant restart loops.
-        let delay: UInt64 = (reason == .error) ? 450_000_000 : 250_000_000
+        let delay: UInt64 = reason == .error ? 450_000_000 : 250_000_000
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: delay)
             guard alwaysListening, !isManuallyPaused else { return }
@@ -634,7 +625,37 @@ struct WorkoutLiveView: View {
         }
     }
 
+    private func scheduleWakeTimeout() {
+        wakeTimeoutTask?.cancel()
+        wakeTimeoutTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(wakeTimeoutSeconds * 1_000_000_000))
+            guard alwaysListening else { return }
+            guard !Task.isCancelled else { return }
+            guard isWakeArmed else { return }
+            clearWakeSession(resetSpeechContext: true, status: "Say \"\(wakeWord)\" then your command")
+        }
+    }
+
+    private func scheduleSilenceCommit() {
+        silenceCommitTask?.cancel()
+        silenceCommitTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(contextAutoClearAfterSilenceSeconds * 1_000_000_000))
+            guard alwaysListening, !isManuallyPaused, isWakeArmed else { return }
+            guard !Task.isCancelled else { return }
+
+            if let pendingCommandPhrase,
+               !pendingCommandPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let pendingSourcePhrase {
+                executeCommandIfReady(pendingCommandPhrase, sourcePhrase: pendingSourcePhrase)
+            } else {
+                clearWakeSession(resetSpeechContext: true, status: "Still listening. Say command again")
+            }
+        }
+    }
+
     private func clearWakeSession(resetSpeechContext: Bool, status: String) {
+        wakeTimeoutTask?.cancel()
+        silenceCommitTask?.cancel()
         wakeArmedUntil = nil
         wakeSessionLastActivity = nil
         lastPartialHeardAt = nil
@@ -643,7 +664,9 @@ struct WorkoutLiveView: View {
         listeningStatus = status
         ignoreFinalTranscriptsUntil = .now.addingTimeInterval(finalTranscriptCooldownSeconds)
         ignorePartialTranscriptsUntil = .now.addingTimeInterval(0.35)
-        if resetSpeechContext, alwaysListening {
+
+        let shouldReset = resetSpeechContext && alwaysListening
+        if shouldReset {
             speechService.resetContinuousContext()
         }
     }

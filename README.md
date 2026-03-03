@@ -8,6 +8,7 @@ MVP iPhone + watchOS companion for fast set logging with push-to-talk voice comm
 - Start workout, choose exercise, log sets quickly.
 - Push-to-talk voice commands (iOS and watch).
 - Optional always-listening mode on iOS with configurable wake word (`Lift`, `Whis`, `Logger`, `Ready`).
+- Live Activity widget extension for lock-screen / Dynamic Island workout state.
 - Optional spoken confirmations (configurable voice on iOS).
 - Transcription backend selection in Settings (`Apple Speech` or `Whisper` profile selection).
 - Rule-based parser (no LLM, no backend).
@@ -105,4 +106,3 @@ Current behavior:
 Notes:
 - iPhone remains the source of truth for command execution.
 - If Whisper fails at runtime, the app falls back to Apple Speech and surfaces the reason in the listening banner.
-

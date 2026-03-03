@@ -72,6 +72,7 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
     func resetContinuousContext() {
         guard mode == .continuous else { return }
         stopCurrentSession(emitLatestTranscript: false, reason: .stopped)
+        startContinuousListening()
     }
 
     private func startListeningSession() {
@@ -110,6 +111,16 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func prepareAudioSessionForRecording() throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(
+            .playAndRecord,
+            mode: .measurement,
+            options: [.mixWithOthers, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay, .defaultToSpeaker]
+        )
+        try session.setActive(true, options: .notifyOthersOnDeactivation)
+    }
+
     private func startAppleListeningSession() {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         recognitionRequest?.shouldReportPartialResults = true
@@ -122,14 +133,13 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
         guard let recognitionRequest else { return }
 
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.mixWithOthers, .allowBluetoothHFP])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            try prepareAudioSessionForRecording()
 
             let inputNode = audioEngine.inputNode
             let recordingFormat = inputNode.outputFormat(forBus: 0)
             inputNode.removeTap(onBus: 0)
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+                guard buffer.frameLength > 0 else { return }
                 recognitionRequest.append(buffer)
             }
 
@@ -165,7 +175,7 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
 #if canImport(WhisperKit)
         guard mode == .continuous else {
             activeBackend = .apple
-            backendNotice = "Whisper currently supports continuous mode; using Apple Speech for push-to-talk."
+            backendNotice = "Whisper supports continuous mode only."
             startAppleListeningSession()
             return
         }
@@ -179,6 +189,8 @@ final class SpeechRecognizerService: NSObject, ObservableObject {
             guard let self else { return }
 
             do {
+                try self.prepareAudioSessionForRecording()
+
                 let model = self.selectedWhisperModel
                 let whisper = try await self.prepareWhisper(model: model)
                 guard let tokenizer = whisper.tokenizer else {
